@@ -34,6 +34,13 @@ env/
 .vscode/
 *.code-workspace
 
+
+# Data files
+*.json
+*.csv
+*.tsv
+*.parquet
+
 # Logs
 *.log
 logs/

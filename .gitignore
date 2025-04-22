@@ -34,6 +34,10 @@ env/
 .vscode/
 *.code-workspace
 
+# model items
+wandb/
+*epoch*
+*.pt
 
 # Data files
 *.json

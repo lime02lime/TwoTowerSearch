@@ -41,4 +41,4 @@ def load_triplets_from_json(input_file: str) -> List[Tuple[str, str, str]]:
         for item in triplets_dict
     ]
     
-    return triplets 
+    return triplets

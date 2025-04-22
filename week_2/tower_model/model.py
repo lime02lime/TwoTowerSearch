@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from sentence_transformers import SentenceTransformer
+import wandb
 
 
 class DualTowerWithFC(nn.Module):

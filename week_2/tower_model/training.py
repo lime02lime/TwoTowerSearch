@@ -3,6 +3,7 @@ from pathlib import Path
 import torch
 from torch.utils.data import DataLoader, Dataset
 import wandb
+from datetime import datetime
 
 # Add the project root to Python path
 project_root = str(Path(__file__).parent.parent.parent)
@@ -10,6 +11,13 @@ sys.path.append(project_root)
 
 from week_2.data_preparation.data_prep import load_triplets_from_json
 from model import DualTowerWithFC, TripletLoss
+
+
+
+def unique_run_name(base_name):
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return f"{base_name}_{timestamp}"
+
 
 class TripletDataset(Dataset):
     def __init__(self, triplets):
@@ -38,7 +46,7 @@ def save_model_checkpoint(model, epoch):
 
 
 
-def train(model, triplets, criterion, optimizer, device, num_epochs=5, batch_size=256, test_triplets=None):
+def train(model, triplets, criterion, optimizer, device, num_epochs=5, batch_size=512, test_triplets=None, run_name="training_run"):
     """
     Train the dual tower model using triplet loss and evaluate on the test set if provided.
     """
@@ -50,7 +58,9 @@ def train(model, triplets, criterion, optimizer, device, num_epochs=5, batch_siz
         "margin": criterion.margin,
         "optimizer": "Adam",
         "lr": optimizer.param_groups[0]['lr']
-    })
+        },
+        name=run_name
+    )
 
     model.train()
     
@@ -69,9 +79,9 @@ def train(model, triplets, criterion, optimizer, device, num_epochs=5, batch_siz
         total_loss = 0
         for batch_idx, (batch_queries, batch_pos_docs, batch_neg_docs) in enumerate(dataloader):
             # Get embeddings
-            query_emb = model(batch_queries, tower_type="query")
-            pos_doc_emb = model(batch_pos_docs, tower_type="doc")
-            neg_doc_emb = model(batch_neg_docs, tower_type="doc")
+            query_emb = model(batch_queries, tower_type="query").to(device)
+            pos_doc_emb = model(batch_pos_docs, tower_type="doc").to(device)
+            neg_doc_emb = model(batch_neg_docs, tower_type="doc").to(device)
             
             # Compute loss
             loss = criterion(query_emb, pos_doc_emb, neg_doc_emb)
@@ -89,7 +99,7 @@ def train(model, triplets, criterion, optimizer, device, num_epochs=5, batch_siz
         
         avg_loss = total_loss / len(dataloader)
         wandb.log({"epoch": epoch, "avg_loss": avg_loss})
-        print(f'Epoch {epoch} complete. Average Loss: {avg_loss:.4f}')
+        print(f'Epoch {epoch+1} complete. Average Loss: {avg_loss:.4f}')
 
         # Save model after each epoch
         save_model_checkpoint(model, epoch)
@@ -133,34 +143,41 @@ def evaluate(model, triplets, criterion, device, batch_size=256):
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
-    
-    # Get the path to triplets.json
-    data_prep_dir = Path(__file__).parent.parent / "data_preparation"
-    train_triplets_path = data_prep_dir / "train_triplets.json"
-    test_triplets_path = data_prep_dir / "test_triplets.json"
-    
-    print("Loading triplets...")
-    print(f"Looking for triplets at: {train_triplets_path} and {test_triplets_path}")
-    train_triplets = load_triplets_from_json(str(train_triplets_path))
-    test_triplets = load_triplets_from_json(str(test_triplets_path))
-    print(f"Loaded {len(train_triplets)} train triplets")
-    print(f"Loaded {len(test_triplets)} test triplets")
 
-    
-    print("Initializing model...")
+    # Paths to Stage 1 and Stage 2 training data
+    data_prep_dir = Path(__file__).parent.parent / "data_preparation"
+    stage1_path = data_prep_dir / "train_triplets_stage1.json"
+    stage2_path = data_prep_dir / "train_triplets_stage2.json"
+    test_path = data_prep_dir / "test_triplets.json"
+
+    print("Loading triplets...")
+    stage1_triplets = load_triplets_from_json(str(stage1_path))
+    stage2_triplets = load_triplets_from_json(str(stage2_path))
+    test_triplets = load_triplets_from_json(str(test_path))
+    print(f"Stage 1: {len(stage1_triplets)} triplets")
+    print(f"Stage 2: {len(stage2_triplets)} triplets")
+    print(f"Test: {len(test_triplets)} triplets")
+
+    # Initialize model, loss, optimizer
     model = DualTowerWithFC().to(device)
     criterion = TripletLoss()
-    optimizer = torch.optim.Adam(model.parameters())
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
-    print("Starting training...")
-    train(model, train_triplets, criterion, optimizer, device=device, test_triplets=test_triplets)
-    
-    print("Training complete!")
-    
-    # Save the model in the same directory as the script
-    model_save_path = Path(__file__).parent / "dual_tower_model.pt"
-    torch.save(model.state_dict(), str(model_save_path))
-    print(f"Model saved to {model_save_path}!")
+    print("Training Stage 1...")
+    train(model, stage1_triplets, criterion, optimizer, device=device, num_epochs=5, test_triplets=test_triplets, run_name=unique_run_name("stage1_training"))
+    base_model_save_path = Path(__file__).parent / "dual_tower_model_base.pt"
+    torch.save(model.state_dict(), str(base_model_save_path))
+    print(f"Base model (stage 1) saved to {base_model_save_path}!")
+
+    #print("Training Stage 2 (fine-tuning)...")
+    #optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)  # Lower learning rate for fine-tuning
+    #train(model, stage2_triplets, criterion, optimizer, device=device, num_epochs=3, test_triplets=test_triplets, run_name=unique_run_name("stage2_training_fine_tuning"))
+
+    # Save the final model
+    #final_model_save_path = Path(__file__).parent / "dual_tower_model_final.pt"
+    #torch.save(model.state_dict(), str(final_model_save_path))
+    #print(f"Final model (stage 2, fine-tuned) saved to {final_model_save_path}!")
+
 
 if __name__ == "__main__":
     main()

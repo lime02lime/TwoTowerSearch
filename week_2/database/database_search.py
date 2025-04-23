@@ -3,26 +3,37 @@ import torch
 from sentence_transformers import SentenceTransformer
 from chromadb.config import Settings
 
+from pathlib import Path
+import sys
+project_root = str(Path(__file__).parent.parent.parent)
+sys.path.append(project_root)
+from week_2.tower_model.model import DualTowerWithFC
+
+
 # Load the model and ChromaDB client
 def load_model_and_client(device="cpu"):
-    # Initialize model and load the SentenceTransformer model
-    model = SentenceTransformer('paraphrase-MiniLM-L6-v2')
+    # Use your custom model
+    model = DualTowerWithFC()
+    model.load_state_dict(torch.load("week_2/tower_model/dual_tower_model_base_384D.pt", map_location=device))
     model.to(device)
     
-    # Initialize ChromaDB client
-    client = chromadb.PersistentClient(path="./chroma_db")
-    
-    # Access the collection
-    collection_name = 'ms_marco_documents'
-    collection = client.get_collection(collection_name)
+    try:
+        # Initialize ChromaDB client
+        client = chromadb.PersistentClient(path="./chroma_db")
+        # Access the collection
+        collection = client.get_collection('ms_marco_documents')
+    except Exception as e:
+        print(f"Error initializing ChromaDB client: {e}")
+        return None, None
     
     return model, collection
 
 
 # Perform the search and return the closest document
 def search_collection(query, model, collection, device="cpu"):
-    # Generate embedding for the query
-    query_embedding = model.encode([query], convert_to_tensor=True).cpu().numpy()
+    model.eval()
+    with torch.no_grad():
+        query_embedding = model([query], tower_type="query").to(device).cpu().numpy()
     
     # Search for the most similar document
     results = collection.query(
@@ -42,7 +53,11 @@ def main():
     
     # Load model and ChromaDB client
     model, collection = load_model_and_client(device=device)
+    if collection is None:
+        print("Failed to load ChromaDB client. Exiting.")
+        return
     
+
     print("-" * 40)
     print("Welcome to the document search. Type 'exit' or ctrl+C to quit the program.")
     print("-" * 40)

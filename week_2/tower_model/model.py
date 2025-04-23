@@ -5,7 +5,7 @@ import wandb
 
 
 class DualTowerWithFC(nn.Module):
-    def __init__(self, model_name='all-MiniLM-L6-v2', embedding_dim=384, hidden_dim=256):
+    def __init__(self, model_name='msmarco-bert-base-dot-v5', embedding_dim=768, hidden_dim=768):
         super(DualTowerWithFC, self).__init__()
         
         self.embedding_model = SentenceTransformer(model_name)

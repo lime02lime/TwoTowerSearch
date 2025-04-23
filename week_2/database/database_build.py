@@ -30,14 +30,15 @@ def embed_texts_with_doc_tower(model, texts, batch_size=256, device="cpu", colle
             batch = texts[i:i+batch_size]
             doc_embeds = model(batch, tower_type="doc")
             batch_embeddings = doc_embeds.cpu().numpy()
-            embeddings.extend(batch_embeddings)
-
             batch_ids = [str(start_id + i + j) for j in range(len(batch))]
-            ids.extend(batch_ids)
+
+            # Add this batch directly to ChromaDB
+            collection.add(documents=batch, embeddings=batch_embeddings.tolist(), ids=batch_ids)
 
             if (i + len(batch)) % print_interval < batch_size:
                 percent = int(100 * (i + len(batch)) / total_docs)
                 print(f"Progress: {percent}% ({i + len(batch)}/{total_docs} docs processed)")
+
 
     print("Storing embeddings in ChromaDB collection...")
     collection.add(documents=texts, embeddings=embeddings, ids=ids)
@@ -54,14 +55,14 @@ def main():
 
     # Set up paths
     data_prep_dir = Path(__file__).parent.parent / "data_preparation"
-    all_docs_path = data_prep_dir / "all_docs.json"
+    all_docs_path = data_prep_dir / "msmarco_v1_docs.json"
 
     # Load the passages
-    all_passages = load_passages_from_file(str(all_docs_path))[-1000:]
+    all_passages = load_passages_from_file(str(all_docs_path))[:500_000]  # Load only the first 5 million for testing
 
     # Load the trained model
     model = DualTowerWithFC()
-    model.load_state_dict(torch.load("week_2/tower_model/dual_tower_model_base.pt", map_location=device))
+    model.load_state_dict(torch.load("week_2/tower_model/dual_tower_model_base_384D.pt", map_location=device))
     model.eval()
 
     # Initialize ChromaDB client

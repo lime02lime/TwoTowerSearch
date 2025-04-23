@@ -4,6 +4,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 import wandb
 from datetime import datetime
+import random
 
 # Add the project root to Python path
 project_root = str(Path(__file__).parent.parent.parent)
@@ -144,7 +145,6 @@ def evaluate(model, triplets, criterion, device, batch_size=256):
 
 
 def main():
-
     PERFORM_STAGE2 = False
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -157,7 +157,10 @@ def main():
     test_path = data_prep_dir / "test_triplets.json"
 
     print("Loading triplets...")
-    stage1_triplets = load_triplets_from_json(str(stage1_path))
+    stage1_triplets = load_triplets_from_json(str(stage1_path)) 
+    random.shuffle(stage1_triplets)
+    stage1_triplets = stage1_triplets[:100000]  # Limit to 100,000 for faster training
+    
     test_triplets = load_triplets_from_json(str(test_path))
     print(f"Stage 1: {len(stage1_triplets)} triplets")
     print(f"Test: {len(test_triplets)} triplets")
@@ -169,7 +172,7 @@ def main():
 
     print("Training Stage 1...")
     train(model, stage1_triplets, criterion, optimizer, device=device, num_epochs=4, test_triplets=test_triplets, run_name=unique_run_name("stage1_training"))
-    base_model_save_path = Path(__file__).parent / "dual_tower_model_base.pt"
+    base_model_save_path = Path(__file__).parent / "dual_tower_model_base_384D.pt"
     print(f"Training Stage 1 complete. Saving model to {base_model_save_path}...")
     torch.save(model.state_dict(), str(base_model_save_path))
     print(f"Base model (stage 1) saved to {base_model_save_path} !")

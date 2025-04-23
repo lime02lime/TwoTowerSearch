@@ -55,7 +55,7 @@ def main():
     
     print("Initializing model...")
     model = DualTowerWithFC().to(device)
-    model.load_state_dict(torch.load("week_2/tower_model/dual_tower_model_base.pt"))  # Load the trained model
+    model.load_state_dict(torch.load("week_2/tower_model/dual_tower_model_base_384D.pt"))  # Load the trained model
     model.eval()
     
     print("Extracting embeddings for queries and docs...")

@@ -1,5 +1,69 @@
 import json
 from typing import List, Tuple
+import random
+
+
+
+def create_triplets(dataset, include_hard_negatives=False, num_hard_negatives=3):
+    """
+    Create (query, positive_passage, negative_passage) triplets from the given dataset.
+    For training, add additional triplets with in-row "hard" negatives.
+    
+    Args:
+        dataset (list of dict): Each item should have 'Query' and 'Passages' keys. 
+                                'Passages' must contain 'is_selected' and 'passage_text'.
+        include_hard_negatives (bool): Whether to add hard negative samples (for training only)
+        num_hard_negatives (int): Number of hard negatives to sample per positive (if available)
+    
+    Returns:
+        list of tuples: Each tuple is (query, positive_passage, negative_passage)
+    """
+    all_passages = []
+
+    # Pre-collect all passages for negative sampling
+    for row in dataset:
+        all_passages.extend(row['passages']['passage_text'])
+
+    triplets = []
+
+    for row in dataset:
+        query = row['query']
+        passages = row['passages']['passage_text']
+        labels = row['passages']['is_selected']
+
+        # Find the index of the positive passage
+        if 1 not in labels:
+            continue  # Skip if no positive passage
+        pos_index = labels.index(1)
+        positive = passages[pos_index]
+
+        # Select a random negative passage (ensuring it's not from the same row)
+        while True:
+            negative = random.choice(all_passages)
+            if negative != positive and negative not in passages:
+                break
+
+        triplets.append((query, positive, negative))
+
+        if include_hard_negatives:
+            # Create additional triplets with in-row negatives (if available)
+            non_selected_indices = [i for i, label in enumerate(labels) if label == 0]
+            
+            if non_selected_indices:
+                # Sample up to num_hard_negatives unique in-row negatives
+                # (or fewer if not enough are available)
+                sampled_indices = random.sample(
+                    non_selected_indices, 
+                    min(num_hard_negatives, len(non_selected_indices))
+                )
+                
+                for neg_index in sampled_indices:
+                    in_row_negative = passages[neg_index]
+                    triplets.append((query, positive, in_row_negative))
+
+    return triplets
+
+
 
 def save_triplets_to_json(triplets: List[Tuple[str, str, str]], output_file: str) -> None:
     """

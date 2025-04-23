@@ -36,8 +36,8 @@ class TripletDataset(Dataset):
         return self.queries[idx], self.pos_docs[idx], self.neg_docs[idx]
 
 
-def save_model_checkpoint(model, epoch):
-    model_path = f"dual_tower_epoch_{epoch}.pt"
+def save_model_checkpoint(model, epoch, best=False):
+    model_path = f"dual_tower_epoch_{epoch}.pt" if not best else "dual_tower_best_model.pt"
     torch.save(model.state_dict(), model_path)
 
     artifact = wandb.Artifact('dual_tower_model', type='model')
@@ -75,6 +75,7 @@ def train(model, triplets, criterion, optimizer, device, num_epochs=5, batch_siz
                               [n for _, _, n in x])
     )
     
+    best_test_loss = float('inf')
     for epoch in range(num_epochs):
         total_loss = 0
         for batch_idx, (batch_queries, batch_pos_docs, batch_neg_docs) in enumerate(dataloader):
@@ -101,13 +102,15 @@ def train(model, triplets, criterion, optimizer, device, num_epochs=5, batch_siz
         wandb.log({"epoch": epoch, "avg_loss": avg_loss})
         print(f'Epoch {epoch+1} complete. Average Loss: {avg_loss:.4f}')
 
-        # Save model after each epoch
-        save_model_checkpoint(model, epoch)
-
-        # Optional: Evaluate on test set
+        # Evaluate on test set and save only if performance improved
         if test_triplets is not None:
             test_loss = evaluate(model, test_triplets, criterion, device, batch_size)
             wandb.log({"epoch": epoch, "test_loss": test_loss})
+
+            if test_loss < best_test_loss:
+                best_test_loss = test_loss
+                print(f"New best model found at epoch {epoch+1} with test loss {test_loss:.4f}")
+                save_model_checkpoint(model, epoch, best=True)
 
 
 @torch.no_grad()
@@ -141,21 +144,22 @@ def evaluate(model, triplets, criterion, device, batch_size=256):
 
 
 def main():
+
+    PERFORM_STAGE2 = False
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
     # Paths to Stage 1 and Stage 2 training data
     data_prep_dir = Path(__file__).parent.parent / "data_preparation"
     stage1_path = data_prep_dir / "train_triplets_stage1.json"
-    stage2_path = data_prep_dir / "train_triplets_stage2.json"
+    
     test_path = data_prep_dir / "test_triplets.json"
 
     print("Loading triplets...")
     stage1_triplets = load_triplets_from_json(str(stage1_path))
-    stage2_triplets = load_triplets_from_json(str(stage2_path))
     test_triplets = load_triplets_from_json(str(test_path))
     print(f"Stage 1: {len(stage1_triplets)} triplets")
-    print(f"Stage 2: {len(stage2_triplets)} triplets")
     print(f"Test: {len(test_triplets)} triplets")
 
     # Initialize model, loss, optimizer
@@ -169,14 +173,22 @@ def main():
     torch.save(model.state_dict(), str(base_model_save_path))
     print(f"Base model (stage 1) saved to {base_model_save_path}!")
 
-    #print("Training Stage 2 (fine-tuning)...")
-    #optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)  # Lower learning rate for fine-tuning
-    #train(model, stage2_triplets, criterion, optimizer, device=device, num_epochs=3, test_triplets=test_triplets, run_name=unique_run_name("stage2_training_fine_tuning"))
+    if PERFORM_STAGE2:
+        print("proceeding to stage 2: fine-tuning")
+        print("Loading stage 2 triplets...")
+        stage2_path = data_prep_dir / "train_triplets_stage2.json"
+        stage2_triplets = load_triplets_from_json(str(stage2_path))
 
-    # Save the final model
-    #final_model_save_path = Path(__file__).parent / "dual_tower_model_final.pt"
-    #torch.save(model.state_dict(), str(final_model_save_path))
-    #print(f"Final model (stage 2, fine-tuned) saved to {final_model_save_path}!")
+        print(f"Stage 2: {len(stage2_triplets)} triplets")
+
+        print("Training Stage 2 (fine-tuning)...")
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)  # Lower learning rate for fine-tuning
+        train(model, stage2_triplets, criterion, optimizer, device=device, num_epochs=3, test_triplets=test_triplets, run_name=unique_run_name("stage2_training_fine_tuning"))
+
+        # Save the final model
+        final_model_save_path = Path(__file__).parent / "dual_tower_model_final.pt"
+        torch.save(model.state_dict(), str(final_model_save_path))
+        print(f"Final model (stage 2, fine-tuned) saved to {final_model_save_path}!")
 
 
 if __name__ == "__main__":

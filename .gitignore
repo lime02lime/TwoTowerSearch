@@ -38,6 +38,7 @@ env/
 wandb/
 *epoch*
 *.pt
+*chroma*
 
 # Data files
 *.json

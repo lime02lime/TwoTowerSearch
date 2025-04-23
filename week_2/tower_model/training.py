@@ -76,7 +76,7 @@ def train(model, triplets, criterion, optimizer, device, num_epochs=5, batch_siz
     )
     
     best_test_loss = float('inf')
-    for epoch in range(num_epochs):
+    for epoch in range(1,num_epochs+1):
         total_loss = 0
         for batch_idx, (batch_queries, batch_pos_docs, batch_neg_docs) in enumerate(dataloader):
             # Get embeddings
@@ -96,11 +96,11 @@ def train(model, triplets, criterion, optimizer, device, num_epochs=5, batch_siz
             wandb.log({"batch_loss": loss.item()})
             
             if batch_idx % 10 == 0:
-                print(f'Epoch {epoch+1}, Batch {batch_idx}, Loss: {loss.item():.4f}')
+                print(f'Epoch {epoch}, Batch {batch_idx}, Loss: {loss.item():.4f}')
         
         avg_loss = total_loss / len(dataloader)
         wandb.log({"epoch": epoch, "avg_loss": avg_loss})
-        print(f'Epoch {epoch+1} complete. Average Loss: {avg_loss:.4f}')
+        print(f'Epoch {epoch} complete. Average Loss: {avg_loss:.4f}')
 
         # Evaluate on test set and save only if performance improved
         if test_triplets is not None:
@@ -109,7 +109,7 @@ def train(model, triplets, criterion, optimizer, device, num_epochs=5, batch_siz
 
             if test_loss < best_test_loss:
                 best_test_loss = test_loss
-                print(f"New best model found at epoch {epoch+1} with test loss {test_loss:.4f}")
+                print(f"New best model found at epoch {epoch} with test loss {test_loss:.4f}")
                 save_model_checkpoint(model, epoch, best=True)
 
 
@@ -168,10 +168,11 @@ def main():
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
     print("Training Stage 1...")
-    train(model, stage1_triplets, criterion, optimizer, device=device, num_epochs=5, test_triplets=test_triplets, run_name=unique_run_name("stage1_training"))
+    train(model, stage1_triplets, criterion, optimizer, device=device, num_epochs=4, test_triplets=test_triplets, run_name=unique_run_name("stage1_training"))
     base_model_save_path = Path(__file__).parent / "dual_tower_model_base.pt"
+    print(f"Training Stage 1 complete. Saving model to {base_model_save_path}...")
     torch.save(model.state_dict(), str(base_model_save_path))
-    print(f"Base model (stage 1) saved to {base_model_save_path}!")
+    print(f"Base model (stage 1) saved to {base_model_save_path} !")
 
     if PERFORM_STAGE2:
         print("proceeding to stage 2: fine-tuning")

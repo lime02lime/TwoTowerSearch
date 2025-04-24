@@ -79,7 +79,6 @@ nvidia-curand-cu12==10.3.5.147
 nvidia-cusolver-cu12==11.6.1.9
 nvidia-cusparse-cu12==12.3.1.170
 nvidia-cusparselt-cu12==0.6.2
-nvidia-nccl-cu12==2.21.5
 nvidia-nvjitlink-cu12==12.4.127
 nvidia-nvtx-cu12==12.4.127
 oauthlib==3.2.2
@@ -151,14 +150,12 @@ tornado==6.4.2
 tqdm==4.67.1
 traitlets==5.14.3
 transformers==4.51.3
-triton==3.2.0
 typer==0.15.2
 typing-inspection==0.4.0
 typing_extensions==4.13.2
 tzdata==2025.2
 urllib3==2.4.0
 uvicorn==0.34.2
-uvloop==0.21.0
 wandb==0.19.10
 watchfiles==1.0.5
 wcwidth==0.2.13

@@ -1,28 +1,15 @@
 import torch
+import chromadb
+from db_init import search_collection
 
 
-# Perform the search and return the closest document
-def search_collection(query, model, collection, device="cpu", k=5):
-    model.eval()
-    with torch.no_grad():
-        query_embedding = model([query], tower_type="query").to(device).cpu().numpy()
-    
-    # Search for the k most similar documents
-    results = collection.query(
-        query_embeddings=query_embedding,
-        n_results=k  # Retrieve top k closest matches
-    )
-    
-    if results['documents']:
-        return results['documents'], results['distances']
-    else:
-        return None, None
-
-
-def run_application(model, collection):
+def run_application(model, collection_name):
     """
     Simple loop that queries the user and returns the top k closest documents from the ChromaDB.
     """
+    # Create ChromaDB client and load the collection
+    client = chromadb.PersistentClient(path="./chroma_db")  # Use the same persistent client
+    collection = client.get_or_create_collection(collection_name)  # This loads or creates the collection based on name
 
     print(f"\n{'='*40}\nAll setup complete! Application ready.")
 
@@ -55,10 +42,10 @@ def run_application(model, collection):
                 print(f"\n{'-'*40}")
                 print(f"Top {k} Results for Query: '{query}'")
                 
-                for idx, (doc, dist) in enumerate(zip(closest_docs, distances)):
+                for idx, (doc, dist) in enumerate(zip(closest_docs[0], distances[0])):  # Access the first element of the outer lists
                     print(f"\n{idx + 1}.")
-                    print(f"   Document Text: {doc['text'][:500]}...")  # Print only the first 500 characters for readability
-                    print(f"   Distance: {dist:.4f}")
+                    print(f"   Document Text: {doc[:1000]}...")  # No need for [0] since we're already accessing the inner list
+                    print(f"   Distance: {dist:.4f}")  # No need for [0] since we're already accessing the inner list
                     print(f"{'. '*40}")
                     
 

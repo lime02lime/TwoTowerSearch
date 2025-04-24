@@ -1,5 +1,3 @@
-
-
 import torch
 import json
 import numpy as np
@@ -48,17 +46,18 @@ def embed_texts_with_doc_tower(model, texts, batch_size=256, device="cpu", colle
 
 def create_or_load_chroma_db(docs_path, model, collection_name="docs"):
     print("Creating / loading ChromaDB collection...")
-    # Create or load ChromaDB collection
-    client = chromadb.Client()
+    # Create or load ChromaDB collection with persistence
+    client = chromadb.PersistentClient(path="./chroma_db")  # This will create a 'chroma_db' directory in your current folder
     collection = client.get_or_create_collection(collection_name)
 
     print("Collection created. Loading passages from file...")
     # Load passages from file (a list of strings)
     passages = load_passages_from_file(docs_path)
     
-    # Randomly sample 50,000 passages if we have more than that
+    # Randomly sample 50,000 passages if we have more than that - with a seed
     if len(passages) > 50000:
         print(f"Sampling 50,000 passages from total of {len(passages)} passages...")
+        random.seed(42)
         passages = random.sample(passages, 50000)
     else:
         print(f"Using all {len(passages)} passages since total is less than 50,000")
@@ -79,6 +78,25 @@ def create_or_load_chroma_db(docs_path, model, collection_name="docs"):
         # Embed new passages
         docs_embed_success = embed_texts_with_doc_tower(model, new_passages, collection=collection)
 
-    print("New passages embedded and stored in ChromaDB.")
+    # view collection size
+    print(f"New collection size: {collection.count()}")
     return docs_embed_success
 
+
+
+# Perform the search and return the closest document
+def search_collection(query, model, collection, device="cpu", k=5):
+    model.eval()
+    with torch.no_grad():
+        query_embedding = model([query], tower_type="query").to(device).cpu().numpy()
+    
+    # Search for the k most similar documents
+    results = collection.query(
+        query_embeddings=query_embedding,
+        n_results=k  # Retrieve top k closest matches
+    )
+    
+    if results['documents']:
+        return results['documents'], results['distances']
+    else:
+        return None, None

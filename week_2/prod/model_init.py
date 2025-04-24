@@ -1,7 +1,7 @@
+
 import torch
 import torch.nn as nn
 from sentence_transformers import SentenceTransformer
-import wandb
 
 
 class DualTowerWithFC(nn.Module):
@@ -55,4 +55,18 @@ class TripletLoss(nn.Module):
         return self.loss_fn(query_embedding, positive_embedding, negative_embedding)
 
 
+
+def load_model(model_weights_path, device):
+    try:
+        model = DualTowerWithFC(model_name='multi-qa-MiniLM-L6-cos-v1', embedding_dim=384, hidden_dim=384)
+        state_dict = torch.load(model_weights_path, map_location=device)
+        model.load_state_dict(state_dict)
+        model.to(device)
+        model.eval()  # Good practice for inference
+        print(f"✅ Model loaded successfully from {model_weights_path}")
+        return model
+    
+    except Exception as e:
+        print(f"Failed to load model from {model_weights_path}: {e}")
+        raise
 

@@ -49,6 +49,8 @@ def embed_texts_with_doc_tower(model, texts, batch_size=256, device="cpu", colle
 
 
 
+
+
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")

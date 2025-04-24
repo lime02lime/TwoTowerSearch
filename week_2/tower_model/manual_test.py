@@ -30,11 +30,12 @@ def compute_cosine_similarity(query_emb, doc_emb):
     cosine_sim = cosine_similarity(query_emb, doc_emb)
     return cosine_sim
 
-def get_most_similar_docs(query_emb, doc_emb):
-    # Get the index of the most similar document for each query
+def get_most_similar_docs(query_emb, doc_emb, top_k=5):
+    # Compute cosine similarity
     cosine_sim = compute_cosine_similarity(query_emb, doc_emb)
-    most_similar_idx = np.argmax(cosine_sim, axis=1)  # index of most similar doc for each query
-    return most_similar_idx, cosine_sim
+    # Get top-k indices for each query
+    top_k_indices = np.argsort(cosine_sim, axis=1)[:, -top_k:][:, ::-1]  # sort and reverse for descending
+    return top_k_indices, cosine_sim
 
 def main():
     # Set the device for running on GPU or CPU
@@ -46,7 +47,7 @@ def main():
     test_triplets_path = data_prep_dir / "test_triplets.json"
     
     print("Loading test triplets...")
-    test_triplets = load_triplets_from_json(str(test_triplets_path))
+    test_triplets = load_triplets_from_json(str(test_triplets_path))[:10000]
     print(f"Loaded {len(test_triplets)} test triplets")
     
     # Extract queries and documents
@@ -55,7 +56,7 @@ def main():
     
     print("Initializing model...")
     model = DualTowerWithFC().to(device)
-    model.load_state_dict(torch.load("week_2/tower_model/dual_tower_model_base_384D.pt"))  # Load the trained model
+    model.load_state_dict(torch.load("week_2/tower_model/dual_tower_model_base_384D.pt", map_location=device))  # Load the trained model
     model.eval()
     
     print("Extracting embeddings for queries and docs...")
@@ -70,14 +71,15 @@ def main():
     print("Computing similarities...")
     most_similar_idx, cosine_sim = get_most_similar_docs(query_embeddings_np, doc_embeddings_np)
     
-    # Display the results for the first few queries
-    for i in range(5):  # Displaying top 5 queries and their most similar document
-        print(f"Query {i}: {queries[i]}")
-        print(f"Cosine Similarity with Documents: {cosine_sim[i]}")
-        most_similar_doc_idx = most_similar_idx[i]
-        print(f"Most Similar Doc Index: {most_similar_doc_idx}")
-        print(f"Document: {docs[most_similar_doc_idx]}")
-        print("-" * 50)
+    # Show top 5 documents for each of the first few queries
+    for i in range(10):  # For first 5 queries
+        print(f"\nQuery {i}: {queries[i]}")
+        print("Top 5 most similar documents:")
+        for rank, doc_idx in enumerate(most_similar_idx[i]):
+            print(f"  Rank {rank+1}:")
+            print(f"    Cosine Similarity: {cosine_sim[i][doc_idx]:.4f}")
+            print(f"    Document: {docs[doc_idx]}")
+        print("-" * 60)
 
 if __name__ == "__main__":
     main()

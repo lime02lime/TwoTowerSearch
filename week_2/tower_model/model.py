@@ -8,15 +8,16 @@ class DualTowerWithFC(nn.Module):
     def __init__(self, model_name='multi-qa-MiniLM-L6-cos-v1', embedding_dim=384, hidden_dim=384):
         super(DualTowerWithFC, self).__init__()
         
-        self.embedding_model = SentenceTransformer(model_name)
-        self.fc_query = nn.Sequential(
-            nn.Linear(embedding_dim, hidden_dim),
+        self.embedding_model = SentenceTransformer(model_name) # 384 neurons / nodes
+
+        self.fc_query = nn.Sequential( # Fully connected layers for the query tower
+            nn.Linear(embedding_dim, hidden_dim), # 384 neurons / nodes -> 384 neurons / nodes
             nn.ReLU(),
             nn.Dropout(0.1),
-            nn.Linear(hidden_dim, hidden_dim),
+            nn.Linear(hidden_dim, hidden_dim), # 384 neurons / nodes -> 384 neurons / nodes
             nn.ReLU(),
             nn.Dropout(0.05),
-            nn.Linear(hidden_dim, hidden_dim),
+            nn.Linear(hidden_dim, hidden_dim), # 384 neurons / nodes -> 384 neurons / nodes
             nn.ReLU(),
         )
         

@@ -1,6 +1,6 @@
 # Two Tower Search
 
-A PyTorch implementation of a dual-tower neural network for semantic search using sentence transformers. This model architecture is particularly effective for learning semantic similarity between queries and documents.
+A PyTorch implementation of a dual-tower neural network for semantic search using sentence transformers. This model architecture is designed to learn the semantic similarity between queries and documents.
 
 ## Overview
 
@@ -8,7 +8,7 @@ The project implements a dual-tower architecture where:
 - One tower processes queries
 - Another tower processes documents
 - Both towers share the same base sentence transformer model but have separate fully connected layers
-- The model learns to create embeddings that bring similar queries and documents closer in the embedding space
+- The model learns to create embeddings that bring relevant queries and documents closer in the embedding space
 
 ## Model Architecture
 
@@ -20,11 +20,9 @@ The project implements a dual-tower architecture where:
   - Layer normalization for consistent embedding magnitudes
 
 ### Loss Function
-- Uses triplet loss to learn semantic similarity
-- Margin-based triplet loss implementation
-- Helps learn relative distances between:
-  - Query and positive document
-  - Query and negative document
+- Uses margin-based triplet loss to learn semantic similarity
+- Evaluated using the query, a positive (correct) document and a negative (incorrect) document.
+- This approachg helps to increase the differentiability between similar documents.
 
 ## Requirements
 
@@ -63,3 +61,7 @@ The API will be available at `http://localhost:8000` with automatic API document
 - Wandb integration for experiment tracking
 - FastAPI deployment with ChromaDB integration
 - CORS support for cross-origin requests
+
+## Future Work:
+
+- Could try to embed the doc with a more high-dimensional base embedding model, as the documents can be long and complex. As long as the subsequent MLP reduces the dimensionality to match with the query tower, this should be compatible and might allow us to capture more relevant information from the document.
